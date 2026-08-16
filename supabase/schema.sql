@@ -157,6 +157,30 @@ create table if not exists public.users_meta (
   created_at timestamptz not null default now()
 );
 
+-- Fungsi bantu (security definer, bebas RLS → tidak rekursif)
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (select 1 from public.users_meta where id = auth.uid()::text and role = 'admin');
+$$;
+
+create or replace function public.users_meta_count()
+returns bigint
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select count(*) from public.users_meta;
+$$;
+
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.users_meta_count() to authenticated;
+
 -- Indeks pencarian
 create index if not exists idx_siswa_kelas on public.siswa (kelas_id);
 create index if not exists idx_mapel_kelas on public.mapel (kelas_id);
@@ -174,7 +198,7 @@ begin
   foreach t in array array[
     'sekolah','kelas','siswa','mapel','tp','nilai','deskripsi',
     'kokurikuler','kokurikuler_hasil','ekskul','ekskul_nilai',
-    'kehadiran','catatan_wali','profil_lulusan','users_meta'
+    'kehadiran','catatan_wali','profil_lulusan'
   ]
   loop
     execute format('alter table public.%I enable row level security', t);
@@ -186,3 +210,25 @@ begin
     );
   end loop;
 end $$;
+
+-- Kebijakan khusus users_meta (tanpa rekursi)
+drop policy if exists "users_meta_select" on public.users_meta;
+drop policy if exists "users_meta_insert" on public.users_meta;
+drop policy if exists "users_meta_update" on public.users_meta;
+drop policy if exists "users_meta_delete" on public.users_meta;
+
+create policy "users_meta_select" on public.users_meta
+  for select to authenticated
+  using (id = auth.uid()::text or public.is_admin());
+
+create policy "users_meta_insert" on public.users_meta
+  for insert to authenticated
+  with check (id = auth.uid()::text or public.is_admin());
+
+create policy "users_meta_update" on public.users_meta
+  for update to authenticated
+  using (public.is_admin());
+
+create policy "users_meta_delete" on public.users_meta
+  for delete to authenticated
+  using (public.is_admin());

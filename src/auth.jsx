@@ -19,10 +19,13 @@ export function AuthProvider({ children }) {
         setRole(data.role)
       } else {
         // Bootstrap: pengguna pertama yang masuk otomatis menjadi admin
-        const { count } = await supabase
-          .from('users_meta')
-          .select('id', { count: 'exact', head: true })
-        const newRole = count === 0 ? 'admin' : 'guru'
+        let newRole = 'guru'
+        try {
+          const { data: jumlah } = await supabase.rpc('users_meta_count')
+          newRole = Number(jumlah) === 0 ? 'admin' : 'guru'
+        } catch {
+          newRole = 'guru'
+        }
         await supabase.from('users_meta').upsert({
           id: user.id,
           email: user.email || '',

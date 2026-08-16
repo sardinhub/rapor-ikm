@@ -91,9 +91,11 @@ export function StoreProvider({ children }) {
     }
   }, [])
 
-  // Sinkronisasi write-through: push perubahan (debounce 800 ms) ke database
+  // Sinkronisasi write-through: push perubahan (debounce 800 ms) ke database.
+  // Bergantung pada `session` agar data (mis. seed pertama) ikut ter-upload
+  // begitu pengguna masuk, bukan hanya saat state berubah.
   useEffect(() => {
-    if (mode !== 'online' || !supabase || !sessionRef.current) return
+    if (mode !== 'online' || !supabase || !session) return
     const timer = setTimeout(async () => {
       try {
         const dirty = Object.keys(state).filter(
@@ -109,7 +111,7 @@ export function StoreProvider({ children }) {
       }
     }, 800)
     return () => clearTimeout(timer)
-  }, [state, mode])
+  }, [state, mode, session])
 
   const value = useMemo(() => ({ state, dispatch, mode }), [state, mode])
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>
