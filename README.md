@@ -1,6 +1,7 @@
 # Rapor IKM — Rapor Kurikulum Merdeka
 
 > **🌐 Live:** [rapor-ikm.vercel.app](https://rapor-ikm.vercel.app) · **Repo:** [github.com/sardinhub/rapor-ikm](https://github.com/sardinhub/rapor-ikm)
+> **⚡ Auto-deploy:** setiap push ke `main` langsung di-deploy ke produksi oleh Vercel (GitHub Integration).
 
 Aplikasi web pengelolaan **Rapor Kurikulum Merdeka** (Implementasi Kurikulum Merdeka / IKM) yang disusun mengikuti peraturan **Kementerian Pendidikan Dasar dan Menengah (Kemendikdasmen)** terbaru.
 
