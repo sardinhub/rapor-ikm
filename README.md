@@ -61,7 +61,7 @@ kehadiran, catatan_wali, profil_lulusan
 
 1. Buat proyek di [supabase.com](https://supabase.com) (free tier cukup).
 2. Buka **SQL Editor** → tempel isi `supabase/schema.sql` → **Run** (membuat tabel + kebijakan RLS).
-3. Jika proyek sudah pernah dibuat dengan skema lama, jalankan juga `supabase/migrations/0002_users_meta.sql` (tabel hak akses pengguna) dan `supabase/migrations/0004_multi_tenant.sql` (multi-sekolah per NPSN).
+3. Jika proyek sudah pernah dibuat dengan skema lama, jalankan juga `supabase/migrations/0002_users_meta.sql` (hak akses), `0004_multi_tenant.sql` (multi-sekolah), `0005_sekolah_daftar.sql` (registrasi sekolah) dan `0006_fix_sekolah_id.sql` (perbaikan kolom id).
 4. Salin kredensial: **Project Settings → API** → *Project URL* dan *anon public key*.
 5. Isi file `.env.local`:
 

@@ -73,7 +73,7 @@ function StatusBadge({ mode }) {
   )
 }
 
-function SidebarContent({ page, pageAman, isAdmin, session, onNavigate }) {
+function SidebarContent({ page, pageAman, isSuper, isAdmin, session, onNavigate }) {
   const { state, mode } = useStore()
   return (
     <div className="flex h-full flex-col">
@@ -221,7 +221,7 @@ export default function App() {
 
       {/* Sidebar desktop */}
       <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-        <SidebarContent page={page} pageAman={pageAman} isAdmin={isAdmin} session={session} onNavigate={navigasi} />
+        <SidebarContent page={page} pageAman={pageAman} isSuper={isSuper} isAdmin={isAdmin} session={session} onNavigate={navigasi} />
       </aside>
 
       {/* Drawer mobile */}
@@ -236,7 +236,7 @@ export default function App() {
             >
               <X size={18} />
             </button>
-            <SidebarContent page={page} pageAman={pageAman} isAdmin={isAdmin} session={session} onNavigate={navigasi} />
+            <SidebarContent page={page} pageAman={pageAman} isSuper={isSuper} isAdmin={isAdmin} session={session} onNavigate={navigasi} />
           </div>
         </div>
       )}

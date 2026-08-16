@@ -60,7 +60,9 @@ update public.profil_lulusan set npsn = '20328901' where npsn is null or npsn = 
 
 -- 5) NOT NULL + kunci utama
 --    sekolah: satu baris per sekolah → PK = npsn
+--    (kolom id lama tidak dipakai lagi → dihapus agar tidak NOT NULL)
 alter table public.sekolah drop constraint if exists sekolah_pkey;
+alter table public.sekolah drop column if exists id;
 alter table public.sekolah alter column npsn set not null;
 alter table public.sekolah add primary key (npsn);
 
