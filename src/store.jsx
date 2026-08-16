@@ -4,31 +4,15 @@ import { supabase } from './lib/supabase'
 import { hydrateFromDb, pushKeys } from './db/sync'
 import { useAuth } from './auth'
 
-const KEY = 'rapor-ikm:v1'
+const KEY_BASE = 'rapor-ikm:v1'
 
-export function deepClone(obj) {
-  return JSON.parse(JSON.stringify(obj))
-}
-
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (parsed && parsed.sekolah && Array.isArray(parsed.siswa)) return parsed
-    }
-  } catch {
-    /* fallback ke seed */
-  }
-  return deepClone(seed)
-}
-
-// Keadaan kosong untuk "Mulai dari Nol": struktur utuh, tanpa data contoh.
-// Dimensi Profil Lulusan dipertahankan karena merupakan acuan tetap regulasi.
-export function emptyState() {
+// Keadaan kosong untuk "Mulai dari Nol" / sekolah baru:
+// struktur utuh tanpa data. Dimensi Profil Lulusan dipertahankan
+// karena merupakan acuan tetap regulasi.
+export function emptyState(npsn = '') {
   return {
     sekolah: {
-      npsn: '',
+      npsn,
       nss: '',
       nama: '',
       alamat: '',
@@ -66,6 +50,27 @@ export function emptyState() {
   }
 }
 
+export function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj))
+}
+
+// Multi-sekolah: cache lokal dipisah per NPSN agar data sekolah A
+// tidak pernah bocor ke sekolah B. Tanpa NPSN (mode lokal) memakai
+// kunci lama + seed contoh.
+function loadLocal(npsn) {
+  const key = npsn ? `${KEY_BASE}:${npsn}` : KEY_BASE
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && parsed.sekolah && Array.isArray(parsed.siswa)) return parsed
+    }
+  } catch {
+    /* fallback */
+  }
+  return npsn ? emptyState(npsn) : deepClone(seed)
+}
+
 function reducer(state, action) {
   switch (action.type) {
     case 'HYDRATE':
@@ -75,9 +80,11 @@ function reducer(state, action) {
     case 'PATCH':
       return { ...state, [action.key]: { ...(state[action.key] || {}), ...action.value } }
     case 'RESET':
-      return deepClone(seed)
+      // Multi-sekolah: reset = mulai kosong untuk sekolah ini;
+      // mode lokal (tanpa NPSN) tetap mengembalikan data contoh.
+      return state.sekolah?.npsn ? emptyState(state.sekolah.npsn) : deepClone(seed)
     case 'WIPE':
-      return emptyState()
+      return emptyState(state.sekolah?.npsn || '')
     case 'IMPORT':
       return action.value
     default:
@@ -87,24 +94,25 @@ function reducer(state, action) {
 
 const StoreCtx = createContext(null)
 
-export function StoreProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadLocal)
+export function StoreProvider({ children, npsn }) {
+  const [state, dispatch] = useReducer(reducer, undefined, () => loadLocal(npsn))
   const [mode, setMode] = useState('checking') // 'checking' | 'online' | 'local'
   const lastPushed = useRef({})
   const { session } = useAuth()
   const sessionRef = useRef(session)
   sessionRef.current = session
 
-  // Simpan lokal sebagai cadangan (tetap berfungsi offline)
+  // Simpan lokal sebagai cadangan (per NPSN; tetap berfungsi offline)
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(state))
+      const key = npsn ? `${KEY_BASE}:${npsn}` : KEY_BASE
+      localStorage.setItem(key, JSON.stringify(state))
     } catch {
       /* storage penuh — abaikan */
     }
-  }, [state])
+  }, [state, npsn])
 
-  // Hydrate dari database saat aplikasi dimuat
+  // Hydrate dari database saat aplikasi dimuat (data sekolah ini saja)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -112,8 +120,13 @@ export function StoreProvider({ children }) {
         setMode('local')
         return
       }
+      if (!npsn) {
+        // Belum ada NPSN (menunggu login) → tunggu remount store
+        setMode('checking')
+        return
+      }
       try {
-        const dbState = await hydrateFromDb()
+        const dbState = await hydrateFromDb(npsn)
         if (cancelled) return
         if (dbState) {
           dispatch({ type: 'HYDRATE', value: dbState })
@@ -122,7 +135,7 @@ export function StoreProvider({ children }) {
           lastPushed.current = snap
           setMode('online')
         } else {
-          // Database kosong → isi dengan data lokal (seed/contoh)
+          // Sekolah ini belum punya data → pakai data lokal (kosong)
           lastPushed.current = {}
           setMode('online')
         }
@@ -134,20 +147,18 @@ export function StoreProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [npsn])
 
   // Sinkronisasi write-through: push perubahan (debounce 800 ms) ke database.
-  // Bergantung pada `session` agar data (mis. seed pertama) ikut ter-upload
-  // begitu pengguna masuk, bukan hanya saat state berubah.
   useEffect(() => {
-    if (mode !== 'online' || !supabase || !session) return
+    if (mode !== 'online' || !supabase || !session || !npsn) return
     const timer = setTimeout(async () => {
       try {
         const dirty = Object.keys(state).filter(
           (k) => lastPushed.current[k] === undefined || JSON.stringify(state[k]) !== lastPushed.current[k],
         )
         if (!dirty.length) return
-        await pushKeys(state, dirty)
+        await pushKeys(state, dirty, npsn)
         const snap = {}
         for (const k of dirty) snap[k] = JSON.stringify(state[k])
         lastPushed.current = { ...lastPushed.current, ...snap }
@@ -156,7 +167,7 @@ export function StoreProvider({ children }) {
       }
     }, 800)
     return () => clearTimeout(timer)
-  }, [state, mode, session])
+  }, [state, mode, session, npsn])
 
   const value = useMemo(() => ({ state, dispatch, mode }), [state, mode])
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>

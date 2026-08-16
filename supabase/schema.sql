@@ -3,11 +3,14 @@
 -- Jalankan di Supabase Dashboard → SQL Editor
 -- Catatan: tanpa foreign key agar strategi sinkronisasi
 -- "replace" per tabel aman (tidak ada efek kaskade).
+--
+-- MULTI-SEKOLAH: setiap baris data memiliki kolom npsn (kunci
+-- sekolah). RLS membatasi akses per NPSN pengguna yang login.
 -- ============================================================
 
+-- Profil sekolah: satu baris per sekolah → PK = npsn
 create table if not exists public.sekolah (
-  id int primary key,
-  npsn text,
+  npsn text primary key,
   nss text,
   nama text,
   alamat text,
@@ -34,16 +37,19 @@ create table if not exists public.sekolah (
 );
 
 create table if not exists public.kelas (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   nama text not null,
   fase text,
   wali_kelas text,
   nip_wali text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (id, npsn)
 );
 
 create table if not exists public.siswa (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   kelas_id text,
   nisn text,
   nis text,
@@ -57,11 +63,13 @@ create table if not exists public.siswa (
   nama_ibu text,
   pekerjaan_ayah text,
   pekerjaan_ibu text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (id, npsn)
 );
 
 create table if not exists public.mapel (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   kelas_id text,
   kode text,
   nama text not null,
@@ -69,91 +77,113 @@ create table if not exists public.mapel (
   pilihan boolean not null default false,
   keterangan text,
   guru text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (id, npsn)
 );
 
 create table if not exists public.tp (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   mapel_id text,
   kode text,
   deskripsi text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (id, npsn)
 );
 
 create table if not exists public.nilai (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   mapel_id text,
   siswa_id text,
   tp_id text,
-  nilai numeric
+  nilai numeric,
+  primary key (id, npsn)
 );
 
 create table if not exists public.deskripsi (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   mapel_id text,
   siswa_id text,
-  deskripsi text
+  deskripsi text,
+  primary key (id, npsn)
 );
 
 create table if not exists public.kokurikuler (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   nama text not null,
   jenis text,
   deskripsi text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (id, npsn)
 );
 
 create table if not exists public.kokurikuler_hasil (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   kokurikuler_id text,
   siswa_id text,
-  hasil text
+  hasil text,
+  primary key (id, npsn)
 );
 
 create table if not exists public.ekskul (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   nama text not null,
   pembina text,
   wajib boolean not null default false,
   keterangan text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (id, npsn)
 );
 
 create table if not exists public.ekskul_nilai (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   ekskul_id text,
   siswa_id text,
   nilai int,
-  deskripsi text
+  deskripsi text,
+  primary key (id, npsn)
 );
 
 create table if not exists public.kehadiran (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   siswa_id text,
   sakit int not null default 0,
   izin int not null default 0,
-  alpha int not null default 0
+  alpha int not null default 0,
+  primary key (id, npsn)
 );
 
 create table if not exists public.catatan_wali (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   siswa_id text,
-  catatan text
+  catatan text,
+  primary key (id, npsn)
 );
 
 create table if not exists public.profil_lulusan (
-  id text primary key,
+  id text not null,
+  npsn text not null,
   siswa_id text,
   dimensi_id text,
-  deskripsi text
+  deskripsi text,
+  primary key (id, npsn)
 );
 
--- Hak akses pengguna (peran: admin / guru)
+-- Hak akses pengguna (peran: admin / guru) + NPSN sekolahnya
 create table if not exists public.users_meta (
   id text primary key,
   email text not null,
   nama text default '',
   role text not null default 'guru',
+  npsn text,
   created_at timestamptz not null default now()
 );
 
@@ -178,8 +208,20 @@ as $$
   select count(*) from public.users_meta;
 $$;
 
+-- NPSN sekolah pengguna yang sedang login
+create or replace function public.current_npsn()
+returns text
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select npsn from public.users_meta where id = auth.uid()::text limit 1;
+$$;
+
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.users_meta_count() to authenticated;
+grant execute on function public.current_npsn() to authenticated;
 
 -- Indeks pencarian
 create index if not exists idx_siswa_kelas on public.siswa (kelas_id);
@@ -187,10 +229,14 @@ create index if not exists idx_mapel_kelas on public.mapel (kelas_id);
 create index if not exists idx_tp_mapel on public.tp (mapel_id);
 create index if not exists idx_nilai_mapel on public.nilai (mapel_id);
 create index if not exists idx_nilai_siswa on public.nilai (siswa_id);
+create index if not exists idx_kelas_npsn on public.kelas (npsn);
+create index if not exists idx_siswa_npsn on public.siswa (npsn);
+create index if not exists idx_mapel_npsn on public.mapel (npsn);
+create index if not exists idx_nilai_npsn on public.nilai (npsn);
 
 -- ============================================================
--- Row Level Security: hanya pengguna yang login (authenticated)
--- yang dapat membaca & menulis data.
+-- Row Level Security
+-- Pengguna hanya melihat & menulis data SEKOLAHNYA (npsn).
 -- ============================================================
 do $$
 declare t text;
@@ -202,11 +248,10 @@ begin
   ]
   loop
     execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists %I on public.%I', t || '_tenant', t);
     execute format(
-      'drop policy if exists "all_authenticated" on public.%I', t);
-    execute format(
-      'create policy "all_authenticated" on public.%I for all to authenticated using (true) with check (true)',
-      t
+      'create policy %I on public.%I for all to authenticated using (npsn = public.current_npsn()) with check (npsn = public.current_npsn())',
+      t || '_tenant', t
     );
   end loop;
 end $$;

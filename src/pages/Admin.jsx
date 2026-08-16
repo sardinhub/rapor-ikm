@@ -18,7 +18,7 @@ async function api(path, method, body) {
   return json
 }
 
-const KOSONG = { email: '', nama: '', password: '', role: 'guru' }
+const KOSONG = { email: '', nama: '', password: '', role: 'guru', npsn: '' }
 
 export default function Admin() {
   const { session } = useAuth()
@@ -68,6 +68,16 @@ export default function Admin() {
       load()
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  const ubahNpsn = async (u, npsn) => {
+    try {
+      await api('/api/users', 'PATCH', { id: u.id, npsn: npsn.trim() })
+      load()
+    } catch (err) {
+      setError(err.message)
+      load()
     }
   }
 
@@ -122,6 +132,7 @@ export default function Admin() {
                 <tr>
                   <th className="px-5 py-2.5 font-semibold">Nama</th>
                   <th className="px-3 py-2.5 font-semibold">Email</th>
+                  <th className="px-3 py-2.5 font-semibold">NPSN Sekolah</th>
                   <th className="px-3 py-2.5 font-semibold">Hak Akses</th>
                   <th className="px-3 py-2.5 font-semibold">Terdaftar</th>
                   <th className="px-5 py-2.5 text-right font-semibold">Aksi</th>
@@ -135,6 +146,15 @@ export default function Admin() {
                       {u.id === selfId && <Badge tone="emerald" >Anda</Badge>}
                     </td>
                     <td className="px-3 py-2.5 text-slate-600">{u.email}</td>
+                    <td className="px-3 py-2.5">
+                      <Input
+                        value={u.npsn || ''}
+                        onChange={(e) => ubahNpsn(u, e.target.value.replace(/\D/g, '').slice(0, 8))}
+                        placeholder="NPSN"
+                        className="w-28 px-2 py-1 text-xs"
+                        title="NPSN sekolah pengguna (8 digit)"
+                      />
+                    </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         <Select value={u.role} onChange={(e) => ubahRole(u, e.target.value)} className="w-32">
@@ -178,6 +198,14 @@ export default function Admin() {
           </Field>
           <Field label="Password (min. 6 karakter)">
             <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" required />
+          </Field>
+          <Field label="NPSN Sekolah (8 digit)">
+            <Input
+              value={form.npsn}
+              onChange={(e) => setForm({ ...form, npsn: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+              placeholder="cth: 20328901"
+              inputMode="numeric"
+            />
           </Field>
           <Field label="Hak Akses">
             <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>

@@ -23,7 +23,7 @@ import { cx } from './components/ui'
 import { useStore } from './store'
 import { useAuth } from './auth'
 import { supabase } from './lib/supabase'
-import Login from './pages/Login'
+import Login, { NpsnGate } from './pages/Login'
 import Admin from './pages/Admin'
 import Dashboard from './pages/Dashboard'
 import Sekolah from './pages/Sekolah'
@@ -81,7 +81,9 @@ function SidebarContent({ page, pageAman, isAdmin, session, onNavigate }) {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-slate-900">Rapor IKM</p>
-          <p className="truncate text-[11px] text-slate-500">{state.sekolah.nama}</p>
+          <p className="truncate text-[11px] text-slate-500">
+            {state.sekolah.nama || (state.sekolah.npsn ? `NPSN ${state.sekolah.npsn}` : 'Belum ada sekolah')}
+          </p>
         </div>
       </div>
 
@@ -148,12 +150,13 @@ export default function App() {
   const [page, setPage] = useState('dashboard')
   const [menuOpen, setMenuOpen] = useState(false)
   const { state, mode } = useStore()
-  const { session, loading, role } = useAuth()
+  const { session, loading, role, npsn } = useAuth()
   const sekolah = state.sekolah
   const isAdmin = role === 'admin'
 
   if (supabase && loading) return <Splash />
   if (supabase && !session) return <Login />
+  if (supabase && session && !npsn) return <NpsnGate />
 
   const PAGES = {
     dashboard: <Dashboard go={setPage} />,
@@ -192,7 +195,7 @@ export default function App() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold leading-tight text-slate-900">Rapor IKM</p>
-            <p className="truncate text-[10px] text-slate-500">{sekolah.nama}</p>
+            <p className="truncate text-[10px] text-slate-500">{sekolah.nama || (npsn ? `NPSN ${npsn}` : '')}</p>
           </div>
         </div>
         <div className="ml-auto pr-1">

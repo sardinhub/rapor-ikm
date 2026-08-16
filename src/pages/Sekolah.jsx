@@ -57,8 +57,9 @@ export default function Sekolah() {
 
   const hapusData = () => {
     if (!window.confirm('Hapus SELURUH data profil sekolah? Semua field akan dikosongkan (isi ulang nanti).')) return
-    dispatch({ type: 'SET', key: 'sekolah', value: { ...DEFAULT_SEKOLAH } })
-    setForm({ ...DEFAULT_SEKOLAH })
+    // NPSN adalah kunci sekolah (dari login) — tidak ikut dihapus
+    dispatch({ type: 'SET', key: 'sekolah', value: { ...DEFAULT_SEKOLAH, npsn: state.sekolah.npsn } })
+    setForm({ ...DEFAULT_SEKOLAH, npsn: state.sekolah.npsn })
     setEditing(false)
   }
 
@@ -147,7 +148,8 @@ export default function Sekolah() {
             <h2 className="mb-4 text-sm font-bold text-slate-900">Identitas Satuan Pendidikan</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="NPSN">
-                <Input value={form.npsn} onChange={(e) => set('npsn', e.target.value)} />
+                <Input value={form.npsn} disabled className="bg-slate-100 text-slate-500" />
+                <p className="mt-1 text-[11px] text-slate-400">Kunci sekolah dari login — tidak dapat diubah di sini.</p>
               </Field>
               <Field label="NSS / NPS">
                 <Input value={form.nss} onChange={(e) => set('nss', e.target.value)} />

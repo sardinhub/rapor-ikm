@@ -5,6 +5,10 @@ import { DIMENSI } from '../data/seed'
 // Pemetaan state aplikasi ↔ tabel database (Supabase)
 // State adalah sumber kebenaran; setiap perubahan di-push
 // (debounce) sebagai full-replace per tabel.
+//
+// MULTI-SEKOLAH: seluruh data dikunci dengan kolom npsn
+// (NPSN sekolah yang dipilih saat login). Query & tulis selalu
+// menyertakan npsn → RLS memastikan sekolah lain tidak tampil.
 // ============================================================
 
 const TABLES = [
@@ -26,9 +30,8 @@ const TABLES = [
 
 // ---------- Konversi state → baris DB (snake_case) ----------
 
-const toSekolahRow = (s) => ({
-  id: 1,
-  npsn: s.npsn,
+const toSekolahRow = (s, npsn) => ({
+  npsn: npsn || s.npsn || '',
   nss: s.nss,
   nama: s.nama,
   alamat: s.alamat,
@@ -53,10 +56,11 @@ const toSekolahRow = (s) => ({
   batas_c: s.batasC,
 })
 
-const toKelasRow = (k) => ({ id: k.id, nama: k.nama, fase: k.fase, wali_kelas: k.waliKelas, nip_wali: k.nipWali })
+const toKelasRow = (k, npsn) => ({ id: k.id, npsn, nama: k.nama, fase: k.fase, wali_kelas: k.waliKelas, nip_wali: k.nipWali })
 
-const toSiswaRow = (s) => ({
+const toSiswaRow = (s, npsn) => ({
   id: s.id,
+  npsn,
   kelas_id: s.kelasId,
   nisn: s.nisn,
   nis: s.nis,
@@ -72,8 +76,9 @@ const toSiswaRow = (s) => ({
   pekerjaan_ibu: s.pekerjaanIbu,
 })
 
-const toMapelRow = (m) => ({
+const toMapelRow = (m, npsn) => ({
   id: m.id,
+  npsn,
   kelas_id: m.kelasId,
   kode: m.kode,
   nama: m.nama,
@@ -83,11 +88,11 @@ const toMapelRow = (m) => ({
   guru: m.guru,
 })
 
-const toTpRow = (m, t) => ({ id: t.id, mapel_id: m.id, kode: t.kode, deskripsi: t.deskripsi })
+const toTpRow = (m, t, npsn) => ({ id: t.id, npsn, mapel_id: m.id, kode: t.kode, deskripsi: t.deskripsi })
 
-const toKokRow = (k) => ({ id: k.id, nama: k.nama, jenis: k.jenis, deskripsi: k.deskripsi })
+const toKokRow = (k, npsn) => ({ id: k.id, npsn, nama: k.nama, jenis: k.jenis, deskripsi: k.deskripsi })
 
-const toEkskulRow = (e) => ({ id: e.id, nama: e.nama, pembina: e.pembina, wajib: !!e.wajib, keterangan: e.keterangan })
+const toEkskulRow = (e, npsn) => ({ id: e.id, npsn, nama: e.nama, pembina: e.pembina, wajib: !!e.wajib, keterangan: e.keterangan })
 
 // ---------- Konversi baris DB → state (camelCase) ----------
 
@@ -161,11 +166,11 @@ function groupBy(rows, key) {
   return out
 }
 
-// ---------- Hydrate: database → state ----------
+// ---------- Hydrate: database → state (khusus NPSN sekolah) ----------
 
-export async function hydrateFromDb() {
-  if (!supabase) return null
-  const results = await Promise.all(TABLES.map((t) => supabase.from(t).select('*')))
+export async function hydrateFromDb(npsn) {
+  if (!supabase || !npsn) return null
+  const results = await Promise.all(TABLES.map((t) => supabase.from(t).select('*').eq('npsn', npsn)))
   for (const r of results) {
     if (r.error) throw new Error(r.error.message)
   }
@@ -186,7 +191,7 @@ export async function hydrateFromDb() {
     profilRows,
   ] = results.map((r) => r.data)
 
-  // Database masih kosong → biarkan aplikasi memakai data lokal & mengisinya
+  // Sekolah ini belum punya data → biarkan aplikasi memakai data lokal (kosong)
   if (!sekolahRows.length && !kelasRows.length && !siswaRows.length) return null
 
   const tpByMapel = groupBy(tpRows, 'mapel_id')
@@ -250,72 +255,78 @@ export async function hydrateFromDb() {
   }
 }
 
-// ---------- Push: state → database ----------
+// ---------- Push: state → database (per NPSN) ----------
 
-async function replaceTable(table, rows, idCol = 'id') {
-  const ids = rows.map((r) => r[idCol])
-  const { error: delErr } = await supabase.from(table).delete().neq(idCol, idCol) // hapus semua baris
+async function replaceTable(table, rows, npsn) {
+  const { error: delErr } = await supabase.from(table).delete().eq('npsn', npsn) // hapus semua baris sekolah ini
   if (delErr) throw new Error(`Gagal membersihkan ${table}: ${delErr.message}`)
-  if (ids.length) {
-    const { error: upErr } = await supabase.from(table).upsert(rows)
+  if (rows.length) {
+    const { error: upErr } = await supabase.from(table).upsert(rows, { onConflict: 'id,npsn' })
     if (upErr) throw new Error(`Gagal menyimpan ${table}: ${upErr.message}`)
   }
 }
 
 const PUSHERS = {
-  // `sekolah` adalah baris tunggal (id = 1) → cukup upsert, tanpa hapus
-  // (kolom id bertipe integer, trik hapus `.neq('id','id')` tidak valid).
-  sekolah: async (state) => {
-    const { error } = await supabase.from('sekolah').upsert(toSekolahRow(state.sekolah))
+  // `sekolah`: satu baris per NPSN → cukup upsert, tanpa hapus
+  sekolah: async (state, npsn) => {
+    const { error } = await supabase.from('sekolah').upsert(toSekolahRow(state.sekolah, npsn), { onConflict: 'npsn' })
     if (error) throw new Error(`Gagal menyimpan sekolah: ${error.message}`)
   },
-  kelas: (state) => replaceTable('kelas', state.kelas.map(toKelasRow)),
-  siswa: (state) => replaceTable('siswa', state.siswa.map(toSiswaRow)),
-  mapel: async (state) => {
-    await replaceTable('mapel', state.mapel.map(toMapelRow))
-    const tpRows = state.mapel.flatMap((m) => m.tp.map((t) => toTpRow(m, t)))
-    await replaceTable('tp', tpRows)
+  kelas: (state, npsn) => replaceTable('kelas', state.kelas.map((k) => toKelasRow(k, npsn)), npsn),
+  siswa: (state, npsn) => replaceTable('siswa', state.siswa.map((s) => toSiswaRow(s, npsn)), npsn),
+  mapel: async (state, npsn) => {
+    await replaceTable('mapel', state.mapel.map((m) => toMapelRow(m, npsn)), npsn)
+    const tpRows = state.mapel.flatMap((m) => m.tp.map((t) => toTpRow(m, t, npsn)))
+    await replaceTable('tp', tpRows, npsn)
   },
-  nilai: (state) => {
+  nilai: (state, npsn) => {
     const rows = []
     for (const [mapelId, bySiswa] of Object.entries(state.nilai || {})) {
       for (const [siswaId, byTp] of Object.entries(bySiswa)) {
         for (const [tpId, v] of Object.entries(byTp)) {
           if (v == null || v === '') continue
-          rows.push({ id: `${mapelId}:${siswaId}:${tpId}`, mapel_id: mapelId, siswa_id: siswaId, tp_id: tpId, nilai: Number(v) })
+          rows.push({
+            id: `${mapelId}:${siswaId}:${tpId}`,
+            npsn,
+            mapel_id: mapelId,
+            siswa_id: siswaId,
+            tp_id: tpId,
+            nilai: Number(v),
+          })
         }
       }
     }
-    return replaceTable('nilai', rows)
+    return replaceTable('nilai', rows, npsn)
   },
-  deskripsi: (state) => {
+  deskripsi: (state, npsn) => {
     const rows = []
     for (const [mapelId, bySiswa] of Object.entries(state.deskripsi || {})) {
       for (const [siswaId, d] of Object.entries(bySiswa)) {
         if (!d) continue
-        rows.push({ id: `${mapelId}:${siswaId}`, mapel_id: mapelId, siswa_id: siswaId, deskripsi: d })
+        rows.push({ id: `${mapelId}:${siswaId}`, npsn, mapel_id: mapelId, siswa_id: siswaId, deskripsi: d })
       }
     }
-    return replaceTable('deskripsi', rows)
+    return replaceTable('deskripsi', rows, npsn)
   },
-  kokurikuler: async (state) => {
-    await replaceTable('kokurikuler', state.kokurikuler.map(toKokRow))
+  kokurikuler: async (state, npsn) => {
+    await replaceTable('kokurikuler', state.kokurikuler.map((k) => toKokRow(k, npsn)), npsn)
     const rows = []
     for (const k of state.kokurikuler) {
       for (const [siswaId, hasil] of Object.entries(k.hasil || {})) {
         if (!hasil) continue
-        rows.push({ id: `${k.id}:${siswaId}`, kokurikuler_id: k.id, siswa_id: siswaId, hasil })
+        rows.push({ id: `${k.id}:${siswaId}`, npsn, kokurikuler_id: k.id, siswa_id: siswaId, hasil })
       }
     }
-    await replaceTable('kokurikuler_hasil', rows)
+    await replaceTable('kokurikuler_hasil', rows, npsn)
   },
-  ekskul: async (state) => {
-    await replaceTable('ekskul', state.ekskul.map(toEkskulRow))
+  ekskul: async (state, npsn) => {
+    await replaceTable('ekskul', state.ekskul.map((e) => toEkskulRow(e, npsn)), npsn)
     const rows = []
     for (const e of state.ekskul) {
       for (const [siswaId, v] of Object.entries(e.nilai || {})) {
         rows.push({
           id: `${e.id}:${siswaId}`,
+          npsn,
           ekskul_id: e.id,
           siswa_id: siswaId,
           nilai: v.nilai ?? null,
@@ -323,38 +334,46 @@ const PUSHERS = {
         })
       }
     }
-    await replaceTable('ekskul_nilai', rows)
+    await replaceTable('ekskul_nilai', rows, npsn)
   },
-  kehadiran: (state) =>
+  kehadiran: (state, npsn) =>
     replaceTable(
       'kehadiran',
       Object.entries(state.kehadiran || {}).map(([siswaId, k]) => ({
         id: siswaId,
+        npsn,
         siswa_id: siswaId,
         sakit: k.sakit ?? 0,
         izin: k.izin ?? 0,
         alpha: k.alpha ?? 0,
       })),
+      npsn,
     ),
-  catatanWali: (state) =>
+  catatanWali: (state, npsn) =>
     replaceTable(
       'catatan_wali',
-      Object.entries(state.catatanWali || {}).map(([siswaId, catatan]) => ({ id: siswaId, siswa_id: siswaId, catatan })),
+      Object.entries(state.catatanWali || {}).map(([siswaId, catatan]) => ({
+        id: siswaId,
+        npsn,
+        siswa_id: siswaId,
+        catatan,
+      })),
+      npsn,
     ),
-  profilLulusan: (state) => {
+  profilLulusan: (state, npsn) => {
     const rows = []
     for (const [siswaId, dims] of Object.entries(state.profilLulusan || {})) {
       for (const [dimensiId, d] of Object.entries(dims)) {
-        rows.push({ id: `${siswaId}:${dimensiId}`, siswa_id: siswaId, dimensi_id: dimensiId, deskripsi: d })
+        rows.push({ id: `${siswaId}:${dimensiId}`, npsn, siswa_id: siswaId, dimensi_id: dimensiId, deskripsi: d })
       }
     }
-    return replaceTable('profil_lulusan', rows)
+    return replaceTable('profil_lulusan', rows, npsn)
   },
 }
 
-export async function pushKeys(state, keys) {
+export async function pushKeys(state, keys, npsn) {
   for (const k of keys) {
     const fn = PUSHERS[k]
-    if (fn) await fn(state)
+    if (fn) await fn(state, npsn)
   }
 }

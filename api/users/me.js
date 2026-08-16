@@ -1,13 +1,15 @@
 // ============================================================
-// API Cek Peran Pengguna Saat Ini (Vercel Serverless Function)
-// Endpoint: /api/users/me  (GET)
-//
-// Mengembalikan peran (role) pengguna yang sedang login:
-//   { id, email, nama, role }
+// API Peran & NPSN Pengguna Saat Ini (Vercel Serverless Function)
+// Endpoint: /api/users/me
+//   GET  → { id, email, nama, role, npsn }
+//   POST → { npsn }  (mengikat NPSN sekolah ke akun)
 //
 // Memakai service role key sehingga TIDAK terpengaruh kebijakan
-// RLS tabel users_meta (mis. recursive policy) — role selalu
-// terbaca selama JWT pengguna valid.
+// RLS tabel users_meta. Aturan NPSN:
+//   - Akun belum punya NPSN  → NPSN diisi (login pertama).
+//   - NPSN cocok             → diterima.
+//   - NPSN berbeda           → ditolak 409 (data sekolah lain
+//     tidak boleh diakses lewat akun ini).
 // ============================================================
 import { createClient } from '@supabase/supabase-js'
 
@@ -19,7 +21,7 @@ function json(res, status, body) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return json(res, 405, { error: 'Metode tidak didukung.' })
   }
   if (!URL || !SERVICE_ROLE) {
@@ -49,24 +51,58 @@ export default async function handler(req, res) {
       .maybeSingle()
     if (metaErr) throw metaErr
 
-    let role = meta?.role
+    // ---------- POST: ikat NPSN ke akun ----------
+    if (req.method === 'POST') {
+      const { npsn } = req.body || {}
+      const npsnBaru = String(npsn || '').trim()
+      if (!/^\d{8}$/.test(npsnBaru)) {
+        return json(res, 400, { error: 'NPSN wajib diisi dan terdiri dari 8 digit angka.' })
+      }
+      if (meta?.npsn && meta.npsn !== npsnBaru) {
+        return json(res, 409, {
+          error: `Akun ini sudah terhubung ke sekolah dengan NPSN ${meta.npsn}. Gunakan NPSN tersebut, atau minta admin mengubah NPSN akun Anda.`,
+        })
+      }
+      const { error: upErr } = await admin.from('users_meta').upsert(
+        {
+          id: user.id,
+          email: user.email || '',
+          nama: meta?.nama || user.user_metadata?.nama || user.email || '',
+          role: meta?.role || 'guru',
+          npsn: npsnBaru,
+        },
+        { onConflict: 'id' },
+      )
+      if (upErr) throw upErr
+      return json(res, 200, {
+        id: user.id,
+        email: user.email,
+        nama: meta?.nama || user.user_metadata?.nama || user.email || '',
+        role: meta?.role || 'guru',
+        npsn: npsnBaru,
+      })
+    }
+
+    // ---------- GET: kembalikan role & npsn ----------
+    // Bootstrap: baris users_meta dibuat otomatis jika belum ada
+    // (role: admin untuk pengguna pertama, tanpa NPSN sampai
+    // pengguna login dengan NPSN sekolahnya).
     if (!meta) {
-      // Bootstrap: pengguna pertama yang masuk otomatis menjadi admin
       const { count, error: countErr } = await admin
         .from('users_meta')
         .select('id', { count: 'exact', head: true })
       if (countErr) throw countErr
-      role = Number(count) === 0 ? 'admin' : 'guru'
+      const role = Number(count) === 0 ? 'admin' : 'guru'
       const nama = user.user_metadata?.nama || user.email || ''
       const { error: upsertErr } = await admin.from('users_meta').upsert(
-        { id: user.id, email: user.email || '', nama, role },
+        { id: user.id, email: user.email || '', nama, role, npsn: null },
         { onConflict: 'id' },
       )
       if (upsertErr) throw upsertErr
-      return json(res, 200, { id: user.id, email: user.email, nama, role })
+      return json(res, 200, { id: user.id, email: user.email, nama, role, npsn: null })
     }
 
-    return json(res, 200, { id: user.id, email: user.email, nama: meta.nama, role })
+    return json(res, 200, { id: user.id, email: user.email, nama: meta.nama, role: meta.role, npsn: meta.npsn || null })
   } catch (e) {
     console.error('API /api/users/me error:', e)
     return json(res, 500, { error: e.message || 'Terjadi kesalahan server.' })

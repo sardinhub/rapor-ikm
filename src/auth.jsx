@@ -7,24 +7,27 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(Boolean(supabase))
   const [role, setRole] = useState(null) // 'admin' | 'guru' | null
+  const [npsn, setNpsn] = useState(null) // NPSN sekolah aktif (tenant)
 
-  const refreshRole = useCallback(async (user) => {
+  const applyMe = useCallback((me) => {
+    setRole(me.role || null)
+    setNpsn(me.npsn || null)
+  }, [])
+
+  // Muat role + NPSN lewat API serverless (service role, bebas RLS).
+  const refreshMe = useCallback(async (user) => {
     if (!supabase || !user) {
       setRole(null)
+      setNpsn(null)
       return
     }
-    // Jalur utama: tanya role lewat serverless API /api/users/me
-    // (memakai service role → tidak terpengaruh kebijakan RLS users_meta).
     try {
       const { data: sesi } = await supabase.auth.getSession()
       const token = sesi.session?.access_token
       if (token) {
-        const res = await fetch('/api/users/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${token}` } })
         if (res.ok) {
-          const me = await res.json()
-          setRole(me.role)
+          applyMe(await res.json())
           return
         }
       }
@@ -37,6 +40,7 @@ export function AuthProvider({ children }) {
       const { data } = await supabase.from('users_meta').select('*').eq('id', user.id).maybeSingle()
       if (data) {
         setRole(data.role)
+        setNpsn(data.npsn || null)
       } else {
         let newRole = 'guru'
         try {
@@ -52,12 +56,34 @@ export function AuthProvider({ children }) {
           role: newRole,
         })
         setRole(newRole)
+        setNpsn(null)
       }
     } catch (e) {
       console.warn('Gagal memuat hak akses:', e.message)
       setRole(null)
+      setNpsn(null)
     }
-  }, [])
+  }, [applyMe])
+
+  // Ikat NPSN sekolah ke akun saat login (dipanggil dari halaman login).
+  // Menolak bila akun sudah terhubung ke NPSN lain (409 dari server).
+  const linkNpsn = useCallback(
+    async (npsnValue) => {
+      if (!supabase) return
+      const { data: sesi } = await supabase.auth.getSession()
+      const token = sesi.session?.access_token
+      if (!token) throw new Error('Sesi tidak ditemukan.')
+      const res = await fetch('/api/users/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ npsn: npsnValue }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Gagal menghubungkan NPSN.')
+      applyMe(json)
+    },
+    [applyMe],
+  )
 
   useEffect(() => {
     if (!supabase) {
@@ -68,20 +94,23 @@ export function AuthProvider({ children }) {
       .getSession()
       .then(({ data }) => {
         setSession(data.session)
-        if (data.session?.user) refreshRole(data.session.user)
+        if (data.session?.user) refreshMe(data.session.user)
         setLoading(false)
       })
       .catch(() => setLoading(false))
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
-      if (s?.user) refreshRole(s.user)
-      else setRole(null)
+      if (s?.user) refreshMe(s.user)
+      else {
+        setRole(null)
+        setNpsn(null)
+      }
     })
     return () => sub.subscription.unsubscribe()
-  }, [refreshRole])
+  }, [refreshMe])
 
-  return <AuthCtx.Provider value={{ session, loading, role, refreshRole }}>{children}</AuthCtx.Provider>
+  return <AuthCtx.Provider value={{ session, loading, role, npsn, refreshMe, linkNpsn }}>{children}</AuthCtx.Provider>
 }
 
 export function useAuth() {

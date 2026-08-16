@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Download,
   Upload,
-  RotateCcw,
   Trash2,
 } from 'lucide-react'
 import { Card, Button, StatCard, Badge, PageHeader } from '../components/ui'
@@ -87,12 +86,6 @@ export default function Dashboard({ go }) {
     e.target.value = ''
   }
 
-  const resetData = () => {
-    if (window.confirm('Reset seluruh data ke contoh awal? Seluruh perubahan akan hilang.')) {
-      dispatch({ type: 'RESET' })
-    }
-  }
-
   const mulaiDariNol = () => {
     if (
       window.confirm(
@@ -117,9 +110,6 @@ export default function Dashboard({ go }) {
               <Upload size={15} /> Impor Data
             </Button>
             <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importData} />
-            <Button variant="secondary" onClick={resetData}>
-              <RotateCcw size={15} /> Reset Contoh
-            </Button>
             <Button variant="danger" onClick={mulaiDariNol} title="Hapus semua data & mulai kosong">
               <Trash2 size={15} /> Mulai dari Nol
             </Button>

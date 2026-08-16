@@ -26,6 +26,22 @@ Aplikasi web pengelolaan **Rapor Kurikulum Merdeka** (Implementasi Kurikulum Mer
 | **Login** | Autentikasi pengguna via Supabase Auth (email + password) |
 | **Admin — Pengguna & Hak Akses** | Kelola akun (tambah/hapus) dan hak akses (admin/guru) via serverless API |
 | **Hapus Data per Menu** | Tombol hapus semua data pada tiap menu (siswa, mapel, kokurikuler, ekskul, kehadiran, catatan, profil lulusan) |
+| **Mulai dari Nol** | Kosongkan seluruh data (database + perangkat) sekali klik dari Dashboard |
+
+## 🏫 Multi-sekolah (per NPSN)
+
+Aplikasi dapat dipakai oleh **banyak sekolah sekaligus**. Setiap login **wajib memasukkan NPSN** (8 digit):
+
+- Seluruh data rapor (kelas, siswa, mapel, nilai, kehadiran, dll.) dikunci kolom `npsn`.
+- **RLS database** menjamin pengguna hanya melihat/menulis data sekolahnya — data sekolah lain tidak pernah tampil, bahkan lewat API.
+- NPSN pertama yang diisi terkunci pada akun (NPSN berbeda ditolak). Admin dapat mengubah NPSN akun lewat **Admin — Pengguna & Akses**.
+- Sekolah baru dimulai **kosong** (tanpa data contoh) dan cache lokal dipisah per NPSN.
+
+### Migrasi wajib (dari versi sebelumnya)
+
+Jalankan **seluruh isi** `supabase/migrations/0004_multi_tenant.sql` di **Supabase Dashboard → SQL Editor → Run**:
+menambahkan kolom `npsn` ke semua tabel, mengubah kunci utama menjadi komposit `(id, npsn)`, dan mengaktifkan RLS per NPSN.
+Data lama otomatis dianggap milik sekolah contoh `20328901`.
 
 ## Arsitektur Data
 
@@ -45,7 +61,7 @@ kehadiran, catatan_wali, profil_lulusan
 
 1. Buat proyek di [supabase.com](https://supabase.com) (free tier cukup).
 2. Buka **SQL Editor** → tempel isi `supabase/schema.sql` → **Run** (membuat tabel + kebijakan RLS).
-3. Jika proyek sudah pernah dibuat dengan skema lama, jalankan juga `supabase/migrations/0002_users_meta.sql` (tabel hak akses pengguna).
+3. Jika proyek sudah pernah dibuat dengan skema lama, jalankan juga `supabase/migrations/0002_users_meta.sql` (tabel hak akses pengguna) dan `supabase/migrations/0004_multi_tenant.sql` (multi-sekolah per NPSN).
 4. Salin kredensial: **Project Settings → API** → *Project URL* dan *anon public key*.
 5. Isi file `.env.local`:
 
@@ -55,9 +71,10 @@ kehadiran, catatan_wali, profil_lulusan
    ```
 
 6. Mulai ulang `npm run dev`. Aplikasi akan menampilkan halaman **Masuk/Daftar**.
+   - Login **wajib menyertakan NPSN sekolah** (8 digit) — data yang tampil hanya milik sekolah dengan NPSN tersebut.
    - Buat akun pertama melalui tab **Daftar** (atau **Authentication → Users → Add user** di dashboard).
    - **Pengguna pertama otomatis menjadi admin** (bootstrap).
-   - Data contoh (seed) otomatis diunggah ke database saat database masih kosong.
+   - Sekolah baru dimulai kosong; data diinput manual.
 
 > **Keamanan**: secara bawaan, siapa pun bisa mendaftar akun (anon key publik). Untuk produksi, nonaktifkan *Sign ups* di **Supabase → Authentication → Sign In / Up → Allow new users to sign up** — akun baru cukup dibuat lewat menu Admin aplikasi.
 
@@ -120,7 +137,7 @@ supabase/migrations/     # Migrasi tambahan (users_meta)
 
 ## Catatan
 
-- Data contoh dibuat deterministik; gunakan **Reset Contoh** di Dashboard untuk mengembalikan data awal.
+- Sekolah baru dimulai kosong; gunakan **Mulai dari Nol** di Dashboard untuk mengosongkan seluruh data sekolah ini.
 - Ambang predikat (A ≥ 90, B ≥ 80, C ≥ 70) dapat disesuaikan di **Profil Sekolah**.
 - Gunakan **Ekspor/Impor Data** di Dashboard untuk cadangan (format JSON).
 - Jangan pernah memasukkan kredensial Supabase **service_role** ke `.env.local` atau Vercel — cukup gunakan anon key.

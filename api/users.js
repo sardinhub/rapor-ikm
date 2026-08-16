@@ -57,6 +57,7 @@ async function listUsers(admin) {
     lastSignInAt: u.last_sign_in_at,
     role: metaMap[u.id]?.role || 'guru',
     nama: metaMap[u.id]?.nama || u.email,
+    npsn: metaMap[u.id]?.npsn || '',
   }))
 }
 
@@ -71,9 +72,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { email, password, nama, role = 'guru' } = req.body || {}
+      const { email, password, nama, role = 'guru', npsn = '' } = req.body || {}
       if (!email || !password) return json(res, 400, { error: 'Email dan password wajib diisi.' })
       if (password.length < 6) return json(res, 400, { error: 'Password minimal 6 karakter.' })
+      if (npsn && !/^\d{8}$/.test(npsn)) return json(res, 400, { error: 'NPSN harus 8 digit angka.' })
 
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
@@ -84,20 +86,24 @@ export default async function handler(req, res) {
       if (createErr) return json(res, 400, { error: createErr.message })
 
       const { error: metaErr } = await admin.from('users_meta').upsert(
-        { id: created.user.id, email, nama: nama || email, role },
+        { id: created.user.id, email, nama: nama || email, role, npsn: npsn || null },
         { onConflict: 'id' },
       )
       if (metaErr) throw metaErr
-      return json(res, 201, { user: { id: created.user.id, email, nama: nama || email, role } })
+      return json(res, 201, { user: { id: created.user.id, email, nama: nama || email, role, npsn: npsn || null } })
     }
 
     if (req.method === 'PATCH') {
-      const { id, nama, role } = req.body || {}
+      const { id, nama, role, npsn } = req.body || {}
       if (!id) return json(res, 400, { error: 'ID pengguna wajib diisi.' })
+      if (npsn !== undefined && npsn !== '' && !/^\d{8}$/.test(npsn)) {
+        return json(res, 400, { error: 'NPSN harus 8 digit angka.' })
+      }
 
       const upd = {}
       if (role) upd.role = role
       if (nama !== undefined) upd.nama = nama
+      if (npsn !== undefined) upd.npsn = npsn || null
       if (Object.keys(upd).length) {
         const { error: metaErr } = await admin.from('users_meta').update(upd).eq('id', id)
         if (metaErr) throw metaErr
