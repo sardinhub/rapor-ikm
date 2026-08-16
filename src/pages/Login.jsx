@@ -127,7 +127,7 @@ export default function Login() {
         </Card>
 
         <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">
-          Setiap sekolah memiliki NPSN sendiri. Setelah login, Anda hanya melihat data rapor sekolah dengan NPSN tersebut.
+          Setiap sekolah memiliki NPSN sendiri dan harus didaftarkan terlebih dahulu oleh super admin. Setelah login, Anda hanya melihat data rapor sekolah dengan NPSN tersebut.
         </p>
       </div>
     </div>
