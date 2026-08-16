@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Printer, ChevronLeft, ChevronRight, GraduationCap, Pencil } from 'lucide-react'
+import { Printer, ChevronLeft, ChevronRight, GraduationCap, Pencil, Eraser } from 'lucide-react'
 import { Card, Button, Select, Field, PageHeader, Badge, EmptyState } from '../components/ui'
 import { useStore } from '../store'
 import { rataRataNilai, predikat, deskripsiOtomatis, formatTgl, tanggalSekarang, persenKehadiran } from '../lib/utils'
@@ -20,6 +20,11 @@ export default function Rapor() {
     dispatch({ type: 'SET', key: 'catatanWali', value: { ...(state.catatanWali || {}), [siswa.id]: text } })
   }
 
+  const bersihkanCatatan = () => {
+    if (!window.confirm('Hapus SEMUA catatan wali kelas untuk seluruh peserta didik?')) return
+    dispatch({ type: 'SET', key: 'catatanWali', value: {} })
+  }
+
   if (!kelas || !siswa) {
     return <EmptyState icon={<GraduationCap size={36} />} title="Belum ada data" desc="Lengkapi kelas dan peserta didik terlebih dahulu." />
   }
@@ -36,6 +41,9 @@ export default function Rapor() {
         subtitle="Pratinjau rapor sesuai format e-Rapor Kurikulum Merdeka (A4). Pilih peserta didik lalu klik Cetak / Simpan PDF."
         actions={
           <>
+            <Button variant="secondary" onClick={bersihkanCatatan} disabled={state.siswa.length === 0}>
+              <Eraser size={15} /> Bersihkan Catatan Wali
+            </Button>
             <Button variant="secondary" onClick={() => setSiswaId(siswaKelas[Math.max(0, idx - 1)]?.id)} disabled={idx <= 0}>
               <ChevronLeft size={15} /> Sebelumnya
             </Button>

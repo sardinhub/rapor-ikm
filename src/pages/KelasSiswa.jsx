@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Users, School } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, School, Eraser } from 'lucide-react'
 import { Card, Button, Input, Select, Field, Modal, PageHeader, Badge, EmptyState, cx } from '../components/ui'
 import { useStore } from '../store'
 import { uid } from '../lib/utils'
+import { hapusSemuaSiswa, hapusSemuaKelas } from '../lib/cleanup'
 
 const KOSONG_SISWA = {
   nisn: '',
@@ -77,6 +78,22 @@ export default function KelasSiswa() {
     dispatch({ type: 'SET', key: 'siswa', value: state.siswa.filter((x) => x.id !== s.id) })
   }
 
+  const hapusSemuaSiswaKelas = () => {
+    if (state.siswa.length === 0) return
+    if (!window.confirm('Hapus SEMUA siswa beserta nilai, kehadiran, profil lulusan, dan catatannya? Kelas tetap dipertahankan.')) return
+    const r = hapusSemuaSiswa(state, state.siswa)
+    dispatch({ type: 'SET', key: 'siswa', value: [] })
+    for (const [k, v] of Object.entries(r)) dispatch({ type: 'SET', key: k, value: v })
+  }
+
+  const hapusSemuaKelasSiswa = () => {
+    if (state.kelas.length === 0) return
+    if (!window.confirm('Hapus SEMUA kelas beserta siswa, mata pelajaran, nilai, dan seluruh data terkait? (Profil sekolah & kegiatan tetap ada)')) return
+    const r = hapusSemuaKelas(state)
+    for (const [k, v] of Object.entries(r)) dispatch({ type: 'SET', key: k, value: v })
+    setKelasId('')
+  }
+
   const openSiswa = (s) => {
     setFormSiswa(s === 'new' ? KOSONG_SISWA : { ...KOSONG_SISWA, ...s })
     setModalSiswa(s)
@@ -93,9 +110,17 @@ export default function KelasSiswa() {
         title="Kelas & Peserta Didik"
         subtitle="Kelola rombongan belajar (rombel) dan data peserta didik. Data yang tercantum menjadi identitas pada rapor."
         actions={
-          <Button onClick={() => openKelas('new')}>
-            <Plus size={15} /> Tambah Kelas
-          </Button>
+          <>
+            <Button variant="secondary" onClick={hapusSemuaSiswaKelas} disabled={state.siswa.length === 0}>
+              <Eraser size={15} /> Hapus Semua Siswa
+            </Button>
+            <Button variant="danger" onClick={hapusSemuaKelasSiswa} disabled={state.kelas.length === 0}>
+              <Trash2 size={15} /> Hapus Semua Kelas & Data
+            </Button>
+            <Button onClick={() => openKelas('new')}>
+              <Plus size={15} /> Tambah Kelas
+            </Button>
+          </>
         }
       />
 

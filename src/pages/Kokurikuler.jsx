@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Sparkles, Sunrise, Info } from 'lucide-react'
+import { Plus, Pencil, Trash2, Sparkles, Sunrise, Info, Eraser } from 'lucide-react'
 import { Card, Button, Input, Select, Field, Modal, PageHeader, Badge, EmptyState, cx } from '../components/ui'
 import { useStore, deepClone } from '../store'
 import { uid } from '../lib/utils'
@@ -41,6 +41,13 @@ export default function Kokurikuler() {
     if (aktifId === k.id) setAktifId('')
   }
 
+  const hapusSemua = () => {
+    if (state.kokurikuler.length === 0) return
+    if (!window.confirm('Hapus SEMUA kegiatan kokurikuler beserta hasil/keterangan tiap peserta didik?')) return
+    dispatch({ type: 'SET', key: 'kokurikuler', value: [] })
+    setAktifId('')
+  }
+
   const updateHasil = (siswaId, text) => {
     dispatch({
       type: 'SET',
@@ -55,9 +62,14 @@ export default function Kokurikuler() {
         title="Kegiatan Kokurikuler"
         subtitle="Kegiatan kokurikuler yang lebih fleksibel sesuai Permendikdasmen No. 13 Tahun 2025: pembelajaran kolaboratif lintas mata pelajaran, integrasi Gerakan 7 Kebiasaan Anak Indonesia Hebat, dan bentuk penguatan lainnya."
         actions={
-          <Button onClick={() => { setForm(KOSONG); setModal('new') }}>
-            <Plus size={15} /> Tambah Kegiatan
-          </Button>
+          <>
+            <Button variant="danger" onClick={hapusSemua} disabled={state.kokurikuler.length === 0}>
+              <Eraser size={15} /> Hapus Semua Kegiatan
+            </Button>
+            <Button onClick={() => { setForm(KOSONG); setModal('new') }}>
+              <Plus size={15} /> Tambah Kegiatan
+            </Button>
+          </>
         }
       />
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Award, Info } from 'lucide-react'
+import { Award, Info, RotateCcw } from 'lucide-react'
 import { Card, Button, Select, Field, PageHeader, Badge, EmptyState } from '../components/ui'
 import { useStore, deepClone } from '../store'
 import { formatTgl } from '../lib/utils'
@@ -25,11 +25,27 @@ export default function ProfilLulusan() {
     updateDimensi(dimensiId, d.default)
   }
 
+  const resetSemua = () => {
+    if (state.siswa.length === 0) return
+    if (!window.confirm('Kembalikan SEMUA deskripsi Profil Lulusan ke deskripsi awal (standar)? Deskripsi yang sudah diedit akan diganti.')) return
+    const profil = {}
+    for (const s of state.siswa) {
+      profil[s.id] = {}
+      for (const d of state.dimensi) profil[s.id][d.id] = d.default
+    }
+    dispatch({ type: 'SET', key: 'profilLulusan', value: profil })
+  }
+
   return (
     <div>
       <PageHeader
         title="Profil Lulusan (8 Dimensi)"
         subtitle="Penguatan karakter dan kompetensi sesuai Standar Kompetensi Lulusan — Permendikdasmen No. 10 Tahun 2025. Deskripsi ini tercetak pada rapor."
+        actions={
+          <Button variant="secondary" onClick={resetSemua} disabled={state.siswa.length === 0}>
+            <RotateCcw size={15} /> Reset Semua Deskripsi
+          </Button>
+        }
       />
 
       <div className="no-print mb-6 flex flex-wrap items-end gap-4">

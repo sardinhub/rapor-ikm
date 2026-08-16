@@ -148,6 +148,15 @@ create table if not exists public.profil_lulusan (
   deskripsi text
 );
 
+-- Hak akses pengguna (peran: admin / guru)
+create table if not exists public.users_meta (
+  id text primary key,
+  email text not null,
+  nama text default '',
+  role text not null default 'guru',
+  created_at timestamptz not null default now()
+);
+
 -- Indeks pencarian
 create index if not exists idx_siswa_kelas on public.siswa (kelas_id);
 create index if not exists idx_mapel_kelas on public.mapel (kelas_id);
@@ -165,7 +174,7 @@ begin
   foreach t in array array[
     'sekolah','kelas','siswa','mapel','tp','nilai','deskripsi',
     'kokurikuler','kokurikuler_hasil','ekskul','ekskul_nilai',
-    'kehadiran','catatan_wali','profil_lulusan'
+    'kehadiran','catatan_wali','profil_lulusan','users_meta'
   ]
   loop
     execute format('alter table public.%I enable row level security', t);

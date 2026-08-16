@@ -23,6 +23,8 @@ Aplikasi web pengelolaan **Rapor Kurikulum Merdeka** (Implementasi Kurikulum Mer
 | **Rapor & Cetak** | Pratinjau rapor format e-Rapor Kurikulum Merdeka (A4) siap cetak/simpan PDF |
 | **Dasar Hukum** | Daftar regulasi yang menjadi acuan aplikasi |
 | **Login** | Autentikasi pengguna via Supabase Auth (email + password) |
+| **Admin — Pengguna & Hak Akses** | Kelola akun (tambah/hapus) dan hak akses (admin/guru) via serverless API |
+| **Hapus Data per Menu** | Tombol hapus semua data pada tiap menu (siswa, mapel, kokurikuler, ekskul, kehadiran, catatan, profil lulusan) |
 
 ## Arsitektur Data
 
@@ -42,19 +44,21 @@ kehadiran, catatan_wali, profil_lulusan
 
 1. Buat proyek di [supabase.com](https://supabase.com) (free tier cukup).
 2. Buka **SQL Editor** → tempel isi `supabase/schema.sql` → **Run** (membuat tabel + kebijakan RLS).
-3. Salin kredensial: **Project Settings → API** → *Project URL* dan *anon public key*.
-4. Isi file `.env.local`:
+3. Jika proyek sudah pernah dibuat dengan skema lama, jalankan juga `supabase/migrations/0002_users_meta.sql` (tabel hak akses pengguna).
+4. Salin kredensial: **Project Settings → API** → *Project URL* dan *anon public key*.
+5. Isi file `.env.local`:
 
    ```
    VITE_SUPABASE_URL=https://xxxx.supabase.co
    VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
    ```
 
-5. Mulai ulang `npm run dev`. Aplikasi akan menampilkan halaman **Masuk/Daftar**.
-   - Buat akun pertama melalui tab **Daftar**.
+6. Mulai ulang `npm run dev`. Aplikasi akan menampilkan halaman **Masuk/Daftar**.
+   - Buat akun pertama melalui tab **Daftar** (atau **Authentication → Users → Add user** di dashboard).
+   - **Pengguna pertama otomatis menjadi admin** (bootstrap).
    - Data contoh (seed) otomatis diunggah ke database saat database masih kosong.
 
-> **Keamanan**: secara bawaan, siapa pun bisa mendaftar akun (anon key publik). Untuk produksi, nonaktifkan *Sign ups* atau buat *invite-only* di **Supabase → Authentication → Providers → Email**.
+> **Keamanan**: secara bawaan, siapa pun bisa mendaftar akun (anon key publik). Untuk produksi, nonaktifkan *Sign ups* di **Supabase → Authentication → Sign In / Up → Allow new users to sign up** — akun baru cukup dibuat lewat menu Admin aplikasi.
 
 ## Deployment ke Vercel
 
@@ -72,11 +76,16 @@ kehadiran, catatan_wali, profil_lulusan
 ```bash
 npm i -g vercel
 vercel login
-vercel          # konfigurasi pertama (pilih framework: Vite)
-vercel --prod   # deploy ke produksi
+vercel --prod --yes   # konfigurasi & deploy pertama
+# Tambahkan environment variables:
+echo "https://xxxx.supabase.co" | vercel env add VITE_SUPABASE_URL production
+echo "eyJhbGciOi..." | vercel env add VITE_SUPABASE_ANON_KEY production
+# Service role (server-only) untuk API Admin — dari Project Settings → API → service_role:
+echo "eyJhbGciOi...service..." | vercel env add SUPABASE_SERVICE_ROLE_KEY production
+vercel --prod --yes   # deploy ulang dengan env vars
 ```
 
-Vercel akan meminta environment variables yang sama (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
+> `api/users.js` adalah serverless function (kelola pengguna & hak akses). Function membaca `VITE_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — service role key **tidak pernah** diakses dari browser.
 
 ## Regulasi yang Dipatuhi
 
@@ -94,15 +103,18 @@ Vercel akan meminta environment variables yang sama (`VITE_SUPABASE_URL`, `VITE_
 
 ```
 src/
-├── App.jsx              # Layout, guard autentikasi, indikator koneksi
-├── auth.jsx             # Session Supabase Auth
+├── App.jsx              # Layout, guard autentikasi, indikator koneksi, menu Admin
+├── auth.jsx             # Session Supabase Auth + peran (admin/guru)
 ├── store.jsx            # State global + hydrate & sinkronisasi ke DB
 ├── lib/supabase.js      # Klien Supabase (env VITE_SUPABASE_*)
+├── lib/cleanup.js       # Helper hapus data per menu
 ├── db/sync.js           # Pemetaan state ↔ tabel DB (hydrate & push)
 ├── data/                # Seed & daftar dasar hukum
 ├── components/ui.jsx    # Komponen UI dasar
-└── pages/               # Halaman per modul (termasuk Login)
+└── pages/               # Halaman per modul (termasuk Login & Admin)
+api/users.js             # Serverless function: kelola pengguna & hak akses
 supabase/schema.sql      # Skema database + RLS
+supabase/migrations/     # Migrasi tambahan (users_meta)
 ```
 
 ## Catatan

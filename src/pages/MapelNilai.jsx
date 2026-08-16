@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, BookOpen, Target, ListChecks, PenLine } from 'lucide-react'
+import { Plus, Pencil, Trash2, BookOpen, Target, ListChecks, PenLine, Eraser } from 'lucide-react'
 import { Card, Button, Input, Select, Field, Modal, PageHeader, Badge, EmptyState, cx } from '../components/ui'
 import { useStore, deepClone } from '../store'
 import { rataRataNilai, predikat, deskripsiOtomatis, uid } from '../lib/utils'
+import { hapusSemuaMapel } from '../lib/cleanup'
 
 const KOSONG_MAPEL = { kode: '', nama: '', kkm: 70, guru: '', pilihan: false, keterangan: '' }
 const KOSONG_TP = { kode: '', deskripsi: '' }
@@ -85,6 +86,14 @@ export default function MapelNilai() {
     setModalTp(null)
   }
 
+  const hapusSemuaMapelNilai = () => {
+    if (state.mapel.length === 0) return
+    if (!window.confirm('Hapus SEMUA mata pelajaran beserta tujuan pembelajaran, nilai, dan deskripsi manual?')) return
+    const r = hapusSemuaMapel()
+    for (const [k, v] of Object.entries(r)) dispatch({ type: 'SET', key: k, value: v })
+    setMapelId('')
+  }
+
   const hapusTp = (tp) => {
     if (!window.confirm(`Hapus tujuan pembelajaran "${tp.kode}" beserta nilainya?`)) return
     dispatch({
@@ -113,9 +122,14 @@ export default function MapelNilai() {
         title="Mata Pelajaran & Nilai"
         subtitle="Capaian Pembelajaran (CP) diurai menjadi Tujuan Pembelajaran (TP). Masukkan nilai asesmen sumatif per TP; nilai akhir dan predikat dihitung otomatis."
         actions={
-          <Button onClick={() => openMapel('new')}>
-            <Plus size={15} /> Tambah Mata Pelajaran
-          </Button>
+          <>
+            <Button variant="danger" onClick={hapusSemuaMapelNilai} disabled={state.mapel.length === 0}>
+              <Eraser size={15} /> Hapus Semua Mapel & Nilai
+            </Button>
+            <Button onClick={() => openMapel('new')}>
+              <Plus size={15} /> Tambah Mata Pelajaran
+            </Button>
+          </>
         }
       />
 

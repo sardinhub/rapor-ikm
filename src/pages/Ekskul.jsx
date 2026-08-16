@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Trophy, ShieldCheck } from 'lucide-react'
+import { Plus, Pencil, Trash2, Trophy, ShieldCheck, Eraser } from 'lucide-react'
 import { Card, Button, Input, Select, Field, Modal, PageHeader, Badge, EmptyState, cx } from '../components/ui'
 import { useStore, deepClone } from '../store'
 import { uid } from '../lib/utils'
@@ -35,6 +35,13 @@ export default function Ekskul() {
     if (aktifId === e.id) setAktifId('')
   }
 
+  const hapusSemua = () => {
+    if (state.ekskul.length === 0) return
+    if (!window.confirm('Hapus SEMUA ekstrakurikuler beserta nilai & deskripsi tiap peserta didik? (Termasuk Pramuka yang wajib — bisa ditambahkan kembali)')) return
+    dispatch({ type: 'SET', key: 'ekskul', value: [] })
+    setAktifId('')
+  }
+
   const updateNilai = (siswaId, field, val) => {
     const ekskul = deepClone(state.ekskul)
     const idx = ekskul.findIndex((x) => x.id === aktif.id)
@@ -53,9 +60,14 @@ export default function Ekskul() {
         title="Ekstrakurikuler"
         subtitle="Kegiatan ekstrakurikuler peserta didik beserta nilai dan deskripsi. Sesuai Permendikdasmen No. 13 Tahun 2025, satuan pendidikan wajib menyediakan ekstrakurikuler berbasis kepanduan (kepramukaan)."
         actions={
-          <Button onClick={() => { setForm(KOSONG); setModal('new') }}>
-            <Plus size={15} /> Tambah Ekstrakurikuler
-          </Button>
+          <>
+            <Button variant="danger" onClick={hapusSemua} disabled={state.ekskul.length === 0}>
+              <Eraser size={15} /> Hapus Semua Ekskul
+            </Button>
+            <Button onClick={() => { setForm(KOSONG); setModal('new') }}>
+              <Plus size={15} /> Tambah Ekstrakurikuler
+            </Button>
+          </>
         }
       />
 

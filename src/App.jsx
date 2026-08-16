@@ -15,12 +15,14 @@ import {
   Cloud,
   CloudOff,
   Loader2,
+  ShieldCheck,
 } from 'lucide-react'
 import { cx } from './components/ui'
 import { useStore } from './store'
 import { useAuth } from './auth'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import Admin from './pages/Admin'
 import Dashboard from './pages/Dashboard'
 import Sekolah from './pages/Sekolah'
 import KelasSiswa from './pages/KelasSiswa'
@@ -59,8 +61,9 @@ function Splash() {
 export default function App() {
   const [page, setPage] = useState('dashboard')
   const { state, mode } = useStore()
-  const { session, loading } = useAuth()
+  const { session, loading, role } = useAuth()
   const sekolah = state.sekolah
+  const isAdmin = role === 'admin'
 
   if (supabase && loading) return <Splash />
   if (supabase && !session) return <Login />
@@ -75,8 +78,10 @@ export default function App() {
     ekskul: <Ekskul />,
     kehadiran: <Kehadiran />,
     rapor: <Rapor />,
+    admin: isAdmin ? <Admin /> : <Dashboard go={setPage} />,
     hukum: <DasarHukum />,
   }
+  const pageAman = page === 'admin' && !isAdmin ? 'dashboard' : page
 
   return (
     <div className="min-h-screen">
@@ -125,6 +130,18 @@ export default function App() {
               <span className="truncate">{label}</span>
             </button>
           ))}
+          {isAdmin && (
+            <button
+              onClick={() => setPage('admin')}
+              className={cx(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+                pageAman === 'admin' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100',
+              )}
+            >
+              <ShieldCheck size={17} />
+              <span className="truncate">Admin — Pengguna &amp; Akses</span>
+            </button>
+          )}
         </nav>
 
         <div className="border-t border-slate-200 px-5 py-3">
@@ -147,7 +164,7 @@ export default function App() {
 
       {/* Konten */}
       <main className="ml-64 min-h-screen">
-        <div className="mx-auto max-w-6xl px-8 py-8">{PAGES[page] || PAGES.dashboard}</div>
+        <div className="mx-auto max-w-6xl px-8 py-8">{PAGES[pageAman] || PAGES.dashboard}</div>
       </main>
     </div>
   )

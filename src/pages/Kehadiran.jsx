@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { CalendarCheck, Info } from 'lucide-react'
-import { Card, Select, Field, PageHeader, Badge } from '../components/ui'
+import { CalendarCheck, Info, Eraser } from 'lucide-react'
+import { Card, Button, Select, Field, PageHeader, Badge } from '../components/ui'
 import { useStore, deepClone } from '../store'
 import { persenKehadiran } from '../lib/utils'
 
@@ -10,6 +10,11 @@ export default function Kehadiran() {
 
   const siswaKelas = state.siswa.filter((s) => s.kelasId === kelasId)
   const hariEfektif = state.sekolah.hariEfektif || 120
+
+  const bersihkan = () => {
+    if (!window.confirm('Kosongkan SEMUA data kehadiran (sakit/izin/alpha direset ke 0 untuk seluruh peserta didik)?')) return
+    dispatch({ type: 'SET', key: 'kehadiran', value: {} })
+  }
 
   const update = (siswaId, field, val) => {
     const kehadiran = deepClone(state.kehadiran || {})
@@ -23,6 +28,11 @@ export default function Kehadiran() {
       <PageHeader
         title="Kehadiran"
         subtitle={`Rekapitulasi ketidakhadiran peserta didik dalam hari (Sakit, Izin, Tanpa Keterangan). Persentase kehadiran dihitung dari ${hariEfektif} hari efektif.`}
+        actions={
+          <Button variant="danger" onClick={bersihkan} disabled={state.siswa.length === 0}>
+            <Eraser size={15} /> Bersihkan Semua Kehadiran
+          </Button>
+        }
       />
 
       <div className="no-print mb-6 flex flex-wrap items-end gap-4">
