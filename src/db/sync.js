@@ -263,7 +263,12 @@ async function replaceTable(table, rows, idCol = 'id') {
 }
 
 const PUSHERS = {
-  sekolah: (state) => replaceTable('sekolah', [toSekolahRow(state.sekolah)]),
+  // `sekolah` adalah baris tunggal (id = 1) → cukup upsert, tanpa hapus
+  // (kolom id bertipe integer, trik hapus `.neq('id','id')` tidak valid).
+  sekolah: async (state) => {
+    const { error } = await supabase.from('sekolah').upsert(toSekolahRow(state.sekolah))
+    if (error) throw new Error(`Gagal menyimpan sekolah: ${error.message}`)
+  },
   kelas: (state) => replaceTable('kelas', state.kelas.map(toKelasRow)),
   siswa: (state) => replaceTable('siswa', state.siswa.map(toSiswaRow)),
   mapel: async (state) => {

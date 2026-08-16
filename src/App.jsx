@@ -16,6 +16,8 @@ import {
   CloudOff,
   Loader2,
   ShieldCheck,
+  Menu,
+  X,
 } from 'lucide-react'
 import { cx } from './components/ui'
 import { useStore } from './store'
@@ -47,6 +49,90 @@ const NAV = [
   { key: 'hukum', label: 'Dasar Hukum', icon: Scale },
 ]
 
+function StatusBadge({ mode }) {
+  if (mode === 'checking') {
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        <Loader2 size={12} className="animate-spin" /> Menghubungkan...
+      </span>
+    )
+  }
+  if (mode === 'online') {
+    return (
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600">
+        <Cloud size={12} /> Tersinkron online
+      </span>
+    )
+  }
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600">
+      <CloudOff size={12} /> Mode lokal
+    </span>
+  )
+}
+
+function SidebarContent({ page, pageAman, isAdmin, session, onNavigate }) {
+  const { state, mode } = useStore()
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+          <GraduationCap size={22} />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-slate-900">Rapor IKM</p>
+          <p className="truncate text-[11px] text-slate-500">{state.sekolah.nama}</p>
+        </div>
+      </div>
+
+      <div className="border-b border-slate-200 px-5 py-2">
+        <StatusBadge mode={mode} />
+      </div>
+
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
+        {NAV.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => onNavigate(key)}
+            className={cx(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+              pageAman === key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100',
+            )}
+          >
+            <Icon size={17} />
+            <span className="truncate">{label}</span>
+          </button>
+        ))}
+        {isAdmin && (
+          <button
+            onClick={() => onNavigate('admin')}
+            className={cx(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+              pageAman === 'admin' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100',
+            )}
+          >
+            <ShieldCheck size={17} />
+            <span className="truncate">Admin — Pengguna &amp; Akses</span>
+          </button>
+        )}
+      </nav>
+
+      <div className="border-t border-slate-200 px-5 py-3">
+        {session?.user?.email && <p className="mb-2 truncate text-[11px] text-slate-500">Masuk sebagai: {session.user.email}</p>}
+        {supabase && (
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <LogOut size={13} /> Keluar
+          </button>
+        )}
+        <p className="text-[11px] leading-relaxed text-slate-400">Data tersimpan di database &amp; lokal. Gunakan menu Rapor untuk mencetak.</p>
+      </div>
+    </div>
+  )
+}
+
 function Splash() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100">
@@ -60,6 +146,7 @@ function Splash() {
 
 export default function App() {
   const [page, setPage] = useState('dashboard')
+  const [menuOpen, setMenuOpen] = useState(false)
   const { state, mode } = useStore()
   const { session, loading, role } = useAuth()
   const sekolah = state.sekolah
@@ -83,88 +170,64 @@ export default function App() {
   }
   const pageAman = page === 'admin' && !isAdmin ? 'dashboard' : page
 
+  const navigasi = (key) => {
+    setPage(key)
+    setMenuOpen(false)
+  }
+
   return (
-    <div className="min-h-screen">
-      {/* Sidebar */}
-      <aside className="no-print fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-200 bg-white">
-        <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
-            <GraduationCap size={22} />
+    <div className="min-h-screen bg-slate-100">
+      {/* Bar atas mobile / tablet */}
+      <header className="no-print fixed inset-x-0 top-0 z-40 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="Buka menu"
+          className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 active:scale-95"
+        >
+          <Menu size={22} />
+        </button>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+            <GraduationCap size={18} />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-slate-900">Rapor IKM</p>
-            <p className="truncate text-[11px] text-slate-500">{sekolah.nama}</p>
+            <p className="truncate text-sm font-bold leading-tight text-slate-900">Rapor IKM</p>
+            <p className="truncate text-[10px] text-slate-500">{sekolah.nama}</p>
           </div>
         </div>
-
-        {/* Status koneksi */}
-        <div className="border-b border-slate-200 px-5 py-2">
-          {mode === 'checking' && (
-            <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
-              <Loader2 size={12} className="animate-spin" /> Menghubungkan database...
-            </span>
-          )}
-          {mode === 'online' && (
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600">
-              <Cloud size={12} /> Tersinkron online
-            </span>
-          )}
-          {mode === 'local' && (
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600">
-              <CloudOff size={12} /> Mode lokal (tanpa database)
-            </span>
-          )}
+        <div className="ml-auto pr-1">
+          <StatusBadge mode={mode} />
         </div>
+      </header>
 
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">
-          {NAV.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setPage(key)}
-              className={cx(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
-                page === key ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100',
-              )}
-            >
-              <Icon size={17} />
-              <span className="truncate">{label}</span>
-            </button>
-          ))}
-          {isAdmin && (
-            <button
-              onClick={() => setPage('admin')}
-              className={cx(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
-                pageAman === 'admin' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100',
-              )}
-            >
-              <ShieldCheck size={17} />
-              <span className="truncate">Admin — Pengguna &amp; Akses</span>
-            </button>
-          )}
-        </nav>
-
-        <div className="border-t border-slate-200 px-5 py-3">
-          {session?.user?.email && (
-            <p className="mb-2 truncate text-[11px] text-slate-500">Masuk sebagai: {session.user.email}</p>
-          )}
-          {supabase && (
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-            >
-              <LogOut size={13} /> Keluar
-            </button>
-          )}
-          <p className="text-[11px] leading-relaxed text-slate-400">
-            Data tersimpan di database &amp; lokal. Gunakan menu Rapor untuk mencetak.
-          </p>
-        </div>
+      {/* Sidebar desktop */}
+      <aside className="no-print fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
+        <SidebarContent page={page} pageAman={pageAman} isAdmin={isAdmin} session={session} onNavigate={navigasi} />
       </aside>
 
+      {/* Drawer mobile */}
+      {menuOpen && (
+        <div className="no-print fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMenuOpen(false)} />
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-2xl">
+            <button
+              onClick={() => setMenuOpen(false)}
+              aria-label="Tutup menu"
+              className="absolute right-3 top-3 z-10 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+            >
+              <X size={18} />
+            </button>
+            <SidebarContent page={page} pageAman={pageAman} isAdmin={isAdmin} session={session} onNavigate={navigasi} />
+          </div>
+        </div>
+      )}
+
       {/* Konten */}
-      <main className="ml-64 min-h-screen">
-        <div className="mx-auto max-w-6xl px-8 py-8">{PAGES[pageAman] || PAGES.dashboard}</div>
+      <main className="min-h-screen lg:ml-64">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+          <div className="h-14 lg:hidden" aria-hidden="true" />
+          {PAGES[pageAman] || PAGES.dashboard}
+        </div>
       </main>
     </div>
   )

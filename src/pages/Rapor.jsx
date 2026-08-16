@@ -83,7 +83,8 @@ export default function Rapor() {
       </div>
 
       {/* ====== LEMBAR RAPOR ====== */}
-      <div className="print-area mx-auto w-[210mm] max-w-full rounded-xl border border-slate-300 bg-white p-10 shadow-lg">
+      <div className="overflow-x-auto pb-2">
+      <div className="print-area mx-auto w-[210mm] min-w-[210mm] max-w-full rounded-xl border border-slate-300 bg-white p-6 shadow-lg sm:p-10">
         {/* Kop */}
         <div className="flex items-start gap-4">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-slate-800 text-slate-800">
@@ -342,27 +343,28 @@ export default function Rapor() {
         )}
 
         {/* Tanda tangan */}
-        <div className="mt-8 grid grid-cols-3 gap-4 text-center text-[12px]">
+        <div className="mt-8 grid grid-cols-3 gap-2 text-center text-[11px] sm:gap-4 sm:text-[12px]">
           <div>
-            <p>Mengetahui,</p>
-            <p>Orang Tua/Wali Peserta Didik</p>
-            <div className="h-16" />
-            <p className="font-bold underline">{siswa.namaAyah || siswa.namaIbu || '________________'}</p>
-          </div>
-          <div>
-            <p>{sekolah.kabupaten}, {tanggalSekarang()}</p>
-            <p>Wali Kelas</p>
-            <div className="h-16" />
-            <p className="font-bold underline">{kelas.waliKelas || '________________'}</p>
-            <p>{kelas.nipWali ? `NIP. ${kelas.nipWali}` : ''}</p>
-          </div>
-          <div>
-            <p>Kepala Sekolah</p>
-            <div className="h-16" />
-            <p className="font-bold underline">{sekolah.kepalaSekolah || '________________'}</p>
-            <p>{sekolah.nipKepsek ? `NIP. ${sekolah.nipKepsek}` : ''}</p>
-          </div>
+          <p>Mengetahui,</p>
+          <p>Orang Tua/Wali Peserta Didik</p>
+          <div className="h-16" />
+          <p className="font-bold underline">{siswa.namaAyah || siswa.namaIbu || '________________'}</p>
         </div>
+        <div>
+          <p>{sekolah.kabupaten}, {tanggalSekarang()}</p>
+          <p>Wali Kelas</p>
+          <div className="h-16" />
+          <p className="font-bold underline">{kelas.waliKelas || '________________'}</p>
+          <p>{kelas.nipWali ? `NIP. ${kelas.nipWali}` : ''}</p>
+        </div>
+        <div>
+          <p>Kepala Sekolah</p>
+          <div className="h-16" />
+          <p className="font-bold underline">{sekolah.kepalaSekolah || '________________'}</p>
+          <p>{sekolah.nipKepsek ? `NIP. ${sekolah.nipKepsek}` : ''}</p>
+        </div>
+      </div>
+      </div>
       </div>
 
       <div className="no-print mt-6">

@@ -13,12 +13,31 @@ export function AuthProvider({ children }) {
       setRole(null)
       return
     }
+    // Jalur utama: tanya role lewat serverless API /api/users/me
+    // (memakai service role → tidak terpengaruh kebijakan RLS users_meta).
+    try {
+      const { data: sesi } = await supabase.auth.getSession()
+      const token = sesi.session?.access_token
+      if (token) {
+        const res = await fetch('/api/users/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const me = await res.json()
+          setRole(me.role)
+          return
+        }
+      }
+    } catch {
+      /* lanjut ke jalur cadangan */
+    }
+    // Jalur cadangan: query langsung (berfungsi bila migrasi RLS
+    // 0003 sudah diterapkan di database).
     try {
       const { data } = await supabase.from('users_meta').select('*').eq('id', user.id).maybeSingle()
       if (data) {
         setRole(data.role)
       } else {
-        // Bootstrap: pengguna pertama yang masuk otomatis menjadi admin
         let newRole = 'guru'
         try {
           const { data: jumlah } = await supabase.rpc('users_meta_count')
