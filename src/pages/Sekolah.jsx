@@ -63,6 +63,7 @@ export default function Sekolah() {
   }
 
   const s = state.sekolah
+  const profilKosong = !(s.nama || s.npsn || s.alamat || s.kabupaten || s.kepalaSekolah)
 
   return (
     <div>
@@ -85,7 +86,7 @@ export default function Sekolah() {
                 <Trash2 size={15} /> Hapus Data
               </Button>
               <Button onClick={mulaiEdit}>
-                <Pencil size={15} /> Edit Data
+                <Pencil size={15} /> {profilKosong ? 'Isi Data Profil' : 'Edit Data'}
               </Button>
             </>
           )
