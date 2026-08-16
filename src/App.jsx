@@ -129,7 +129,7 @@ function SidebarContent({ page, pageAman, isAdmin, session, onNavigate }) {
             <LogOut size={13} /> Keluar
           </button>
         )}
-        <p className="text-[11px] leading-relaxed text-slate-400">Data tersimpan di database &amp; lokal. Gunakan menu Rapor untuk mencetak.</p>
+        <p className="text-[11px] leading-relaxed text-slate-400">Data tersimpan otomatis ke database (online); salinan lokal hanya cadangan. Gunakan menu Rapor untuk mencetak.</p>
       </div>
     </div>
   )
