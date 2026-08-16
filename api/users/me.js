@@ -63,6 +63,24 @@ export default async function handler(req, res) {
           error: `Akun ini sudah terhubung ke sekolah dengan NPSN ${meta.npsn}. Gunakan NPSN tersebut, atau minta admin mengubah NPSN akun Anda.`,
         })
       }
+
+      // Gerbang registrasi: sekolah wajib terdaftar & aktif oleh super admin
+      const { data: reg, error: regErr } = await admin
+        .from('sekolah_daftar')
+        .select('status')
+        .eq('npsn', npsnBaru)
+        .maybeSingle()
+      if (regErr) throw regErr
+      if (!reg) {
+        return json(res, 403, {
+          error: `Sekolah dengan NPSN ${npsnBaru} belum terdaftar di aplikasi. Silakan hubungi super admin untuk mendaftarkan sekolah Anda.`,
+        })
+      }
+      if (reg.status !== 'aktif') {
+        return json(res, 403, {
+          error: `Sekolah dengan NPSN ${npsnBaru} berstatus nonaktif. Silakan hubungi super admin untuk mengaktifkannya.`,
+        })
+      }
       const { error: upErr } = await admin.from('users_meta').upsert(
         {
           id: user.id,
@@ -92,7 +110,8 @@ export default async function handler(req, res) {
         .from('users_meta')
         .select('id', { count: 'exact', head: true })
       if (countErr) throw countErr
-      const role = Number(count) === 0 ? 'admin' : 'guru'
+      // Pengguna pertama otomatis menjadi SUPER ADMIN (pemilik aplikasi)
+      const role = Number(count) === 0 ? 'superadmin' : 'guru'
       const nama = user.user_metadata?.nama || user.email || ''
       const { error: upsertErr } = await admin.from('users_meta').upsert(
         { id: user.id, email: user.email || '', nama, role, npsn: null },

@@ -3,20 +3,7 @@ import { ShieldCheck, UserPlus, Trash2, Loader2, AlertCircle, Info } from 'lucid
 import { Card, Button, Input, Select, Field, Modal, PageHeader, Badge, EmptyState } from '../components/ui'
 import { useAuth } from '../auth'
 import { formatTgl } from '../lib/utils'
-
-async function api(path, method, body) {
-  const { supabase } = await import('../lib/supabase')
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  const res = await fetch(path, {
-    method,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  const json = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(json.error || `Gagal (${res.status})`)
-  return json
-}
+import { api } from '../lib/api'
 
 const KOSONG = { email: '', nama: '', password: '', role: 'guru', npsn: '' }
 

@@ -16,6 +16,7 @@ import {
   CloudOff,
   Loader2,
   ShieldCheck,
+  Building2,
   Menu,
   X,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ import { useAuth } from './auth'
 import { supabase } from './lib/supabase'
 import Login, { NpsnGate } from './pages/Login'
 import Admin from './pages/Admin'
+import RegistrasiSekolah from './pages/RegistrasiSekolah'
 import Dashboard from './pages/Dashboard'
 import Sekolah from './pages/Sekolah'
 import KelasSiswa from './pages/KelasSiswa'
@@ -105,6 +107,18 @@ function SidebarContent({ page, pageAman, isAdmin, session, onNavigate }) {
             <span className="truncate">{label}</span>
           </button>
         ))}
+        {isSuper && (
+          <button
+            onClick={() => onNavigate('registrasi')}
+            className={cx(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+              pageAman === 'registrasi' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100',
+            )}
+          >
+            <Building2 size={17} />
+            <span className="truncate">Registrasi Sekolah</span>
+          </button>
+        )}
         {isAdmin && (
           <button
             onClick={() => onNavigate('admin')}
@@ -152,7 +166,8 @@ export default function App() {
   const { state, mode } = useStore()
   const { session, loading, role, npsn } = useAuth()
   const sekolah = state.sekolah
-  const isAdmin = role === 'admin'
+  const isSuper = role === 'superadmin'
+  const isAdmin = role === 'admin' || role === 'superadmin'
 
   if (supabase && loading) return <Splash />
   if (supabase && !session) return <Login />
@@ -168,10 +183,11 @@ export default function App() {
     ekskul: <Ekskul />,
     kehadiran: <Kehadiran />,
     rapor: <Rapor />,
+    registrasi: isSuper ? <RegistrasiSekolah /> : <Dashboard go={setPage} />,
     admin: isAdmin ? <Admin /> : <Dashboard go={setPage} />,
     hukum: <DasarHukum />,
   }
-  const pageAman = page === 'admin' && !isAdmin ? 'dashboard' : page
+  const pageAman = (page === 'admin' && !isAdmin) || (page === 'registrasi' && !isSuper) ? 'dashboard' : page
 
   const navigasi = (key) => {
     setPage(key)

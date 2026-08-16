@@ -38,7 +38,7 @@ async function requireAdmin(req, res) {
     return null
   }
   const { data: meta } = await admin.from('users_meta').select('role').eq('id', data.user.id).single()
-  if (meta?.role !== 'admin') {
+  if (!['admin', 'superadmin'].includes(meta?.role)) {
     json(res, 403, { error: 'Hanya admin yang dapat mengelola pengguna.' })
     return null
   }
