@@ -9,6 +9,7 @@ import {
   Download,
   Upload,
   RotateCcw,
+  Trash2,
 } from 'lucide-react'
 import { Card, Button, StatCard, Badge, PageHeader } from '../components/ui'
 import { useStore } from '../store'
@@ -92,6 +93,16 @@ export default function Dashboard({ go }) {
     }
   }
 
+  const mulaiDariNol = () => {
+    if (
+      window.confirm(
+        'Hapus SEMUA data (kelas, siswa, mapel, nilai, kehadiran, catatan, dll.) dari aplikasi DAN database?\n\nData contoh juga ikut terhapus. Tindakan ini tidak dapat dibatalkan.',
+      )
+    ) {
+      dispatch({ type: 'WIPE' })
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -108,6 +119,9 @@ export default function Dashboard({ go }) {
             <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={importData} />
             <Button variant="secondary" onClick={resetData}>
               <RotateCcw size={15} /> Reset Contoh
+            </Button>
+            <Button variant="danger" onClick={mulaiDariNol} title="Hapus semua data & mulai kosong">
+              <Trash2 size={15} /> Mulai dari Nol
             </Button>
             <Button onClick={() => go('rapor')}>
               <FileText size={15} /> Buka Rapor

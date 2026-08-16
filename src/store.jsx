@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { seed } from './data/seed'
+import { seed, DIMENSI } from './data/seed'
 import { supabase } from './lib/supabase'
 import { hydrateFromDb, pushKeys } from './db/sync'
 import { useAuth } from './auth'
@@ -23,6 +23,49 @@ function loadLocal() {
   return deepClone(seed)
 }
 
+// Keadaan kosong untuk "Mulai dari Nol": struktur utuh, tanpa data contoh.
+// Dimensi Profil Lulusan dipertahankan karena merupakan acuan tetap regulasi.
+export function emptyState() {
+  return {
+    sekolah: {
+      npsn: '',
+      nss: '',
+      nama: '',
+      alamat: '',
+      desa: '',
+      kecamatan: '',
+      kabupaten: '',
+      provinsi: '',
+      kodePos: '',
+      telp: '',
+      email: '',
+      website: '',
+      akreditasi: '',
+      jenjang: 'SMP',
+      kurikulum: 'Kurikulum Merdeka',
+      tahunPelajaran: '',
+      semester: 1,
+      hariEfektif: 120,
+      kepalaSekolah: '',
+      nipKepsek: '',
+      batasA: 90,
+      batasB: 80,
+      batasC: 70,
+    },
+    kelas: [],
+    siswa: [],
+    mapel: [],
+    nilai: {},
+    dimensi: DIMENSI,
+    profilLulusan: {},
+    kokurikuler: [],
+    ekskul: [],
+    kehadiran: {},
+    catatanWali: {},
+    deskripsi: {},
+  }
+}
+
 function reducer(state, action) {
   switch (action.type) {
     case 'HYDRATE':
@@ -33,6 +76,8 @@ function reducer(state, action) {
       return { ...state, [action.key]: { ...(state[action.key] || {}), ...action.value } }
     case 'RESET':
       return deepClone(seed)
+    case 'WIPE':
+      return emptyState()
     case 'IMPORT':
       return action.value
     default:
